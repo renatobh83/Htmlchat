@@ -21,19 +21,19 @@
                 script.src = src;
                 script.onload = callback;
                 document.head.appendChild(script);
+
             };
 
             loadScript("https://cdn.socket.io/4.7.2/socket.io.min.js", () => {
-                const API_URL = "https://app4.pluslive.online";
-                const messageSound = new Audio("https://notificationsounds.com/storage/sounds/file-sounds-1196-mmm-2.ogg");
-
-                if ("Notification" in window && Notification.permission !== "granted") {
-                    Notification.requestPermission();
-                }
+                // const API_URL = "https://app4.pluslive.online";
+                const API_URL = "http://localhost:3100";
                 let socket;
                 let chatVisible = false;
                 let chatToken = localStorage.getItem("chat_token");
                 let formContainer = null;
+                let chatMessages = null;
+                let loadingOlder = false;
+                let offset = 0;
 
                 const chatButton = document.createElement("div");
                 chatButton.innerText = "💬";
@@ -54,6 +54,29 @@
                     zIndex: 9999,
                 });
                 document.body.appendChild(chatButton);
+
+                chatButton.addEventListener("click", () => {
+                    chatVisible = !chatVisible;
+
+                    if (chatVisible) {
+
+                        if (!formContainer) {
+                            showPreForm();
+
+                        } else {
+
+                            formContainer.style.display = "block";
+                        }
+                    } else {
+
+                        if (formContainer) formContainer.style.display = "none";
+                    }
+                });
+
+                if (chatToken) {
+                    chatVisible = true;
+                    connectSocket();
+                }
                 function showDesktopNotification(title, body) {
                     if (Notification.permission === "granted") {
                         const notification = new Notification(title, {
@@ -65,39 +88,6 @@
                         setTimeout(() => notification.close(), 5000);
                     }
                 }
-                chatButton.addEventListener("click", () => {
-                    chatVisible = !chatVisible;
-                    if (chatVisible) {
-                        if (!formContainer) {
-                            showPreForm();
-                        } else {
-                            formContainer.style.display = "block";
-                        }
-                    } else {
-                        if (formContainer) formContainer.style.display = "none";
-                    }
-                });
-
-                if (chatToken) {
-                    chatVisible = true;
-                    connectSocket();
-                }
-                function formatTime(timestamp) {
-                    const date = new Date(Number(timestamp));
-
-                    return date.toLocaleTimeString("pt-BR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit"
-                    });
-                }
-                function extrairNome(mensagem) {
-                    const regex = /\*(.*?)\*/;
-                    const match = mensagem.match(regex);
-                    return match ? match[1] : "Atendente";
-                }
-
                 function showPreForm() {
                     formContainer = document.createElement("div");
                     formContainer.innerHTML = `
@@ -106,7 +96,7 @@
                     <label style="display: block; margin-bottom: 8px; color: #555;">Nome</label>
                     <input id="chat-name" placeholder="Digite seu nome" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px;" />
                     <label style="display: block; margin-bottom: 8px; color: #555;">E-mail</label>
-                    <input id="chat-email" placeholder="Digite seu e-mail" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 8px;" />
+                    <input type="email" required id="chat-email" placeholder="Digite seu e-mail" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 8px;" />
                     <label style="display: block; margin-bottom: 8px; color: #555;">CNPJ</label>
                     <input id="chat-cnpj" placeholder="Digite seu cnpj" maxlength="14" value="18273094000132" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 8px;" />
                     <button id="chat-start-btn" style="width: 100%; padding: 12px; background: #007bff; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;">Iniciar Chat</button>
@@ -119,7 +109,11 @@
                         const email = document.getElementById("chat-email").value;
                         const identifier = document.getElementById("chat-cnpj").value;
 
-                        if (!name || !email || !identifier) return alert("Preencha todos os campos.");
+                        if (!name || !email || !identifier) return showToast("Preencha todos os campos.", "error");//alert("Preencha todos os campos.");
+                        if (!validateEmail(email)) {
+                            showToast("Digite um e-mail válido.", "error");
+                            return;
+                        }
                         const startBtn = document.getElementById("chat-start-btn");
                         // Troca texto e desativa
                         startBtn.textContent = "Iniciando...";
@@ -133,23 +127,31 @@
                             const { token, error } = await res.json();
 
                             if (error) {
-                                alert(error);
+
+                                showToast(error, "error");
                                 startBtn.textContent = "Iniciar Chat"; // volta
                                 startBtn.disabled = false;
                                 return;
                             }
+                            showToast("Aguarde um técnico para iniciar o atendimento.", "success");
                             chatToken = token;
                             localStorage.setItem("chat_token", token);
                             formContainer.remove();
                             connectSocket();
                         } catch (err) {
                             console.error("Erro ao gerar token", err);
-                            alert("Não foi possível iniciar o chat.");
+                            showToast("Não foi possível iniciar o chat.", "error");
                             startBtn.textContent = "Iniciar Chat";
                             startBtn.disabled = false;
                         }
                     });
                 }
+
+
+
+
+
+
 
                 function connectSocket() {
                     if (formContainer) formContainer.remove();
@@ -167,19 +169,18 @@
                         const nome = extrairNome(msg);
                         const mensagemSemNome = msg.replace(/\*(.*?)\*:\s*/, ""); // Remove o nome da mensagem
                         appendMessage(nome, mensagemSemNome);
-                        messageSound.play();
-                        showDesktopNotification("Nova mensagem", msg);
+                        playSound();
+                        notify("Nova mensagem", msg);
                     });
                     socket.on("chat:image", (url) => appendImage(url));
-                    socket.on("chat:previousMessages", (messages) => {
-                        const loadingEl = document.getElementById("chat-loading");
-                        if (loadingEl) loadingEl.remove();
-                        console.log(messages)
-                        messages.forEach((msg) => {
-                            const timestamp = msg.timestamp || Date.now();
 
+                    socket.on("chat:previousMessages", (messages) => {
+                        if (offset === 0) chatMessages.innerHTML = ""; // Limpa na primeira carga
+                        hideLoading();
+                        messages.reverse().forEach((msg) => {
+                            const timestamp = msg.timestamp || Date.now();
                             if (msg.type === "image") {
-                                appendImage(msg.body, timestamp);
+                                appendImage(msg.body);
                             } else {
                                 if (msg.fromMe) {
                                     const nome = extrairNome(msg.body);
@@ -190,12 +191,25 @@
                                 }
                             }
                         });
+                        if (offset === 0) chatMessages.scrollTop = chatMessages.scrollHeight;
+                        loadingOlder = false;
                     });
 
+                    socket.on("chat:closedTicket", (msg) => {
+                        showToast(msg, "success");
+                        socket.disconnect();
+                        localStorage.removeItem("chat_token");
+                        formContainer.remove();
+                        formContainer = null;
+                        offset = 0;
+                        chatToken = null;
+                        chatVisible = false
+                    })
                     socket.on("connect_error", (err) => {
                         console.error("Erro de conexão:", err.message);
                         if (err.message.includes("invalid token")) {
-                            alert("Sessão expirada. Recarregue e inicie novamente.");
+
+                            showToast("Sessão expirada. Recarregue e inicie novamente.", "error");
                             localStorage.removeItem("chat_token");
                         }
                     });
@@ -218,8 +232,8 @@
                         <button id="chat-close-btn" style="background: transparent; border: none; font-size: 16px; cursor: pointer;">✖</button>
                     </div>
                     <div id="chat-messages" style="flex: 1; padding: 10px; overflow-y: auto;">
-    <div id="chat-loading" style="text-align: center; color: #777;">Carregando mensagens...</div>
-</div>
+                        <div id="chat-loading" style="text-align: center; color: #777;">Carregando mensagens...</div>
+                    </div>
 
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <label for="file-upload" style="cursor: pointer;">📎</label>
@@ -230,74 +244,127 @@
                 </div>
             `;
                     document.body.appendChild(formContainer);
-                    document.getElementById("chat-close-btn").addEventListener("click", () => {
-                        const confirmClose = confirm("Deseja encerrar o atendimento?");
-                        if (confirmClose) {
-                            socket.emit("chat:end"); // você trata isso no servidor
-                            localStorage.removeItem("chat_token"); // Remove o token salvo
-                            chatToken = null;
-                            chatVisible = false;
+                    chatMessages = document.getElementById("chat-messages"); // 👈 aqui está certo
+
+
+                    // Eventos
+                    document.getElementById("chat-send-btn").addEventListener("click", sendMessage);
+                    document.getElementById("chat-input").addEventListener("keydown", (e) => {
+                        if (e.key === "Enter" && e.target.value.trim()) {
+                            e.preventDefault();
+                            sendMessage();
+                        }
+                    });
+                    document.getElementById("file-upload").addEventListener("change", uploadFile);
+                    document.getElementById("chat-close-btn").addEventListener("click", async () => {
+                        if (confirm("Deseja encerrar o atendimento?")) {
+                            socket.disconnect();
+                            localStorage.removeItem("chat_token");
                             formContainer.remove();
-                            formContainer = null; // importante para reexibir o formulário depois;
+                            formContainer = null;
+                            offset = 0;
+                            chatToken = null;
+                            chatVisible = false
                         }
                     });
 
-                    document.getElementById("chat-send-btn").addEventListener("click", function (e) {
-                        e.preventDefault();
-                        const input = document.getElementById("chat-input");
-                        const msg = input.value.trim();
-                        if (!msg) return;
-                        socket.emit("chat:message", msg);
-                        appendMessage("Você", msg);
-                        input.value = "";
-                    });
+                    chatMessages.addEventListener("scroll", () => {
+                        if (chatMessages.scrollTop === 0) {
 
-                    const fileInput = document.getElementById("file-upload");
-                    fileInput.addEventListener("change", async (e) => {
-                        const file = e.target.files[0];
-                        if (!file) return;
-
-                        const formData = new FormData();
-                        formData.append("file", file);
-
-                        try {
-                            const res = await fetch(`${API_URL}/api/chatClient/upload`, {
-                                method: "POST",
-                                headers: {
-                                    Authorization: `Bearer ${chatToken}`,
-                                },
-                                body: formData
-                            });
-                            const data = await res.json();
-                            if (data.url) {
-                                socket.emit("chat:image", data.url);
-                                appendImage(data.url);
-                            } else {
-                                alert("Erro ao enviar imagem");
-                            }
-                        } catch (err) {
-                            console.error(err);
-                            alert("Erro ao enviar imagem");
-                        } finally {
-                            // Reset input para permitir selecionar o mesmo arquivo novamente
-                            fileInput.value = "";
+                            loadMessages();
                         }
                     });
+
+                    loadMessages();
+                }
+                // Toast artesanal
+                function createToastContainer() {
+                    const container = document.createElement("div");
+                    container.id = "toast-container";
+                    Object.assign(container.style, {
+                        position: "fixed",
+                        top: "100px",
+                        right: "20px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                        zIndex: 10000,
+                    });
+                    document.body.appendChild(container);
+                }
+                function showToast(message, type = "info") {
+                    if (!document.getElementById("toast-container")) createToastContainer();
+
+                    const toast = document.createElement("div");
+                    toast.textContent = message;
+
+                    Object.assign(toast.style, {
+                        padding: "12px 16px",
+                        background: type === "error" ? "#dc3545" : type === "success" ? "#28a745" : "#333",
+                        color: "white",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                        fontSize: "14px",
+                        opacity: "0",
+                        transform: "translateY(20px)",
+                        transition: "opacity 0.3s ease, transform 0.3s ease",
+                    });
+
+                    document.getElementById("toast-container").appendChild(toast);
+
+                    requestAnimationFrame(() => {
+                        toast.style.opacity = "1";
+                        toast.style.transform = "translateY(0)";
+                    });
+
+                    setTimeout(() => {
+                        toast.style.opacity = "0";
+                        toast.style.transform = "translateY(20px)";
+                        setTimeout(() => toast.remove(), 300);
+                    }, 3000);
+                }
+                function validateEmail(email) {
+                    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    return re.test(email);
+                }
+
+                function sendMessage() {
+                    const input = document.getElementById("chat-input");
+                    const msg = input.value.trim();
+                    if (!msg) return;
+                    socket.emit("chat:message", msg);
+                    appendMessage("Você", msg, Date.now());
+                    input.value = "";
                 }
 
                 function appendMessage(sender, text, timestamp = Date.now()) {
-                    const messages = document.getElementById("chat-messages");
+                    // const messages = document.getElementById("chat-messages");
                     const el = document.createElement("div");
                     const isClient = sender === "Você";
                     el.className = isClient ? "chat-message chat-client" : "chat-message chat-agent";
                     el.innerHTML = `<div class="message-content"><strong>${sender}:</strong> ${text}
                           <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div></div>`;
-                    messages.appendChild(el);
-                    messages.scrollTop = messages.scrollHeight;
+                    chatMessages.appendChild(el);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+                function formatTime(timestamp) {
+                    const date = new Date(Number(timestamp));
+
+                    return date.toLocaleTimeString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                    });
+                }
+                function extrairNome(mensagem) {
+                    const regex = /\*(.*?)\*/;
+                    const match = mensagem.match(regex);
+                    return match ? match[1] : "Atendente";
                 }
 
                 function appendImage(url, timestamp = Date.now()) {
-                    const messages = document.getElementById("chat-messages");
+                    // const messages = document.getElementById("chat-messages");
                     const el = document.createElement("div");
                     el.className = "chat-message chat-client";
                     el.innerHTML = `
@@ -306,8 +373,66 @@
                       <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div>
                 </div>
             `;
-                    messages.appendChild(el);
-                    messages.scrollTop = messages.scrollHeight;
+                    chatMessages.appendChild(el);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+                async function uploadFile(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const formData = new FormData();
+                    formData.append("file", file);
+
+                    try {
+                        const res = await fetch(`${API_URL}/api/chatClient/upload`, {
+                            method: "POST",
+                            headers: {
+                                Authorization: `Bearer ${chatToken}`,
+                            },
+                            body: formData
+                        });
+                        const data = await res.json();
+                        if (data.url) {
+                            socket.emit("chat:image", data.url);
+                            appendImage(data.url);
+                        } else {
+                            showToast("Erro ao enviar imagem", "error");
+
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        showToast("Erro ao enviar imagem", "error");
+                    }
+                }
+
+                function loadMessages() {
+                    loadingOlder = true;
+                    showLoading();
+                    socket.emit("chat:getMessages", { offset });
+                    offset += 50;
+                }
+                function showLoading() {
+                    document.getElementById("chat-loading").style.display = "block";
+                }
+
+                function hideLoading() {
+                    document.getElementById("chat-loading").style.display = "none";
+                }
+                function playSound() {
+                    const audio = new Audio("https://notificationsounds.com/storage/sounds/file-sounds-1147-that-was-quick.mp3")
+                    audio.play().catch(console.error);
+                }
+
+                function notify(title, body) {
+                    if (Notification.permission === "granted") {
+                        new Notification(title, { body });
+                    } else if (Notification.permission !== "denied") {
+                        Notification.requestPermission().then((perm) => {
+                            if (perm === "granted") {
+                                new Notification(title, { body });
+                            }
+                        });
+                    }
                 }
             });
         })();
