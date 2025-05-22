@@ -20,7 +20,7 @@
                 document.head.appendChild(script);
             };
             loadScript("https://cdn.socket.io/4.7.2/socket.io.min.js", () => {
-                const API_URL = "http://localhost:3100"; // seu backend
+                const API_URL = "https://app4.pluslive.online/api/chat-widget.js"; // seu backend
                 let socket;
                 let chatVisible = false;
                 let chatToken = localStorage.getItem("chat_token");
