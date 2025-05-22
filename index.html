@@ -25,6 +25,11 @@
 
             loadScript("https://cdn.socket.io/4.7.2/socket.io.min.js", () => {
                 const API_URL = "https://app4.pluslive.online";
+                const messageSound = new Audio("https://notificationsounds.com/storage/sounds/file-sounds-1196-mmm-2.ogg");
+
+                if ("Notification" in window && Notification.permission !== "granted") {
+                    Notification.requestPermission();
+                }
                 let socket;
                 let chatVisible = false;
                 let chatToken = localStorage.getItem("chat_token");
@@ -49,7 +54,17 @@
                     zIndex: 9999,
                 });
                 document.body.appendChild(chatButton);
+                function showDesktopNotification(title, body) {
+                    if (Notification.permission === "granted") {
+                        const notification = new Notification(title, {
+                            body: body,
+                            icon: "https://cdn-icons-png.flaticon.com/512/1034/1034141.png", // opcional
+                        });
 
+                        // Fecha a notificação após 5s
+                        setTimeout(() => notification.close(), 5000);
+                    }
+                }
                 chatButton.addEventListener("click", () => {
                     chatVisible = !chatVisible;
                     if (chatVisible) {
@@ -66,6 +81,16 @@
                 if (chatToken) {
                     chatVisible = true;
                     connectSocket();
+                }
+                function formatTime(timestamp) {
+                    const date = new Date(Number(timestamp));
+
+                    return date.toLocaleTimeString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                    });
                 }
                 function extrairNome(mensagem) {
                     const regex = /\*(.*?)\*/;
@@ -95,7 +120,10 @@
                         const identifier = document.getElementById("chat-cnpj").value;
 
                         if (!name || !email || !identifier) return alert("Preencha todos os campos.");
-
+                        const startBtn = document.getElementById("chat-start-btn");
+                        // Troca texto e desativa
+                        startBtn.textContent = "Iniciando...";
+                        startBtn.disabled = true;
                         try {
                             const res = await fetch(`${API_URL}/api/chatClient/token`, {
                                 method: "POST",
@@ -104,7 +132,12 @@
                             });
                             const { token, error } = await res.json();
 
-                            if (error) return alert(error);
+                            if (error) {
+                                alert(error);
+                                startBtn.textContent = "Iniciar Chat"; // volta
+                                startBtn.disabled = false;
+                                return;
+                            }
                             chatToken = token;
                             localStorage.setItem("chat_token", token);
                             formContainer.remove();
@@ -112,6 +145,8 @@
                         } catch (err) {
                             console.error("Erro ao gerar token", err);
                             alert("Não foi possível iniciar o chat.");
+                            startBtn.textContent = "Iniciar Chat";
+                            startBtn.disabled = false;
                         }
                     });
                 }
@@ -132,21 +167,26 @@
                         const nome = extrairNome(msg);
                         const mensagemSemNome = msg.replace(/\*(.*?)\*:\s*/, ""); // Remove o nome da mensagem
                         appendMessage(nome, mensagemSemNome);
+                        messageSound.play();
+                        showDesktopNotification("Nova mensagem", msg);
                     });
                     socket.on("chat:image", (url) => appendImage(url));
                     socket.on("chat:previousMessages", (messages) => {
                         const loadingEl = document.getElementById("chat-loading");
                         if (loadingEl) loadingEl.remove();
+                        console.log(messages)
                         messages.forEach((msg) => {
+                            const timestamp = msg.timestamp || Date.now();
+
                             if (msg.type === "image") {
-                                appendImage(msg.body);
+                                appendImage(msg.body, timestamp);
                             } else {
                                 if (msg.fromMe) {
                                     const nome = extrairNome(msg.body);
                                     const mensagemSemNome = msg.body.replace(/\*(.*?)\*:\s*/, "");
-                                    appendMessage(nome, mensagemSemNome);
+                                    appendMessage(nome, mensagemSemNome, timestamp);
                                 } else {
-                                    appendMessage("Você", msg.body);
+                                    appendMessage("Você", msg.body, timestamp);
                                 }
                             }
                         });
@@ -154,9 +194,9 @@
 
                     socket.on("connect_error", (err) => {
                         console.error("Erro de conexão:", err.message);
-                        if (err.message.includes("Token inválido")) {
-                            localStorage.removeItem("chat_token");
+                        if (err.message.includes("invalid token")) {
                             alert("Sessão expirada. Recarregue e inicie novamente.");
+                            localStorage.removeItem("chat_token");
                         }
                     });
                 }
@@ -171,8 +211,12 @@
                     .message-content { background: #f1f1f1; padding: 10px; border-radius: 12px; font-size: 14px; max-width: 100%; word-wrap: break-word; }
                     .chat-client .message-content { background: #d1e7ff; color: #000; }
                 </style>
-                <div style="position: fixed; bottom: 80px; right: 20px; background: white; border: 1px solid #ccc; border-radius: 12px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); width: 320px; padding: 12px; height: 400px; display: flex; flex-direction: column; z-index: 9999;">
-                    <small style="color: #999;">Conectado ao atendimento</small>
+
+                <div style="position: fixed; bottom: 90px; right: 20px; background: white; border: 1px solid #ccc; border-radius: 12px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); width: 320px; padding: 12px; height: 400px; display: flex; flex-direction: column; z-index: 9999;">
+                    <div style="display: flex; justify-content: space-between; align-items: center">
+                        <small style="color: #999;">Conectado ao atendimento</small>
+                        <button id="chat-close-btn" style="background: transparent; border: none; font-size: 16px; cursor: pointer;">✖</button>
+                    </div>
                     <div id="chat-messages" style="flex: 1; padding: 10px; overflow-y: auto;">
     <div id="chat-loading" style="text-align: center; color: #777;">Carregando mensagens...</div>
 </div>
@@ -186,6 +230,17 @@
                 </div>
             `;
                     document.body.appendChild(formContainer);
+                    document.getElementById("chat-close-btn").addEventListener("click", () => {
+                        const confirmClose = confirm("Deseja encerrar o atendimento?");
+                        if (confirmClose) {
+                            socket.emit("chat:end"); // você trata isso no servidor
+                            localStorage.removeItem("chat_token"); // Remove o token salvo
+                            chatToken = null;
+                            chatVisible = false;
+                            formContainer.remove();
+                            formContainer = null; // importante para reexibir o formulário depois;
+                        }
+                    });
 
                     document.getElementById("chat-send-btn").addEventListener("click", function (e) {
                         e.preventDefault();
@@ -230,23 +285,25 @@
                     });
                 }
 
-                function appendMessage(sender, text) {
+                function appendMessage(sender, text, timestamp = Date.now()) {
                     const messages = document.getElementById("chat-messages");
                     const el = document.createElement("div");
                     const isClient = sender === "Você";
                     el.className = isClient ? "chat-message chat-client" : "chat-message chat-agent";
-                    el.innerHTML = `<div class="message-content"><strong>${sender}:</strong> ${text}</div>`;
+                    el.innerHTML = `<div class="message-content"><strong>${sender}:</strong> ${text}
+                          <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div></div>`;
                     messages.appendChild(el);
                     messages.scrollTop = messages.scrollHeight;
                 }
 
-                function appendImage(url) {
+                function appendImage(url, timestamp = Date.now()) {
                     const messages = document.getElementById("chat-messages");
                     const el = document.createElement("div");
                     el.className = "chat-message chat-client";
                     el.innerHTML = `
                 <div class="message-content">
                     <img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" crossorigin="anonymous" />
+                      <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div>
                 </div>
             `;
                     messages.appendChild(el);
