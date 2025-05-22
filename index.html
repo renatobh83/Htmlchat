@@ -67,6 +67,11 @@
             chatVisible = true;
             connectSocket();
         }
+        function extrairNome(mensagem) {
+    const regex = /\*(.*?)\*/;
+    const match = mensagem.match(regex);
+    return match ? match[1] : "Atendente";
+}
 
         function showPreForm() {
             formContainer = document.createElement("div");
@@ -123,14 +128,24 @@
                 openChatUI();
             });
 
-            socket.on("chat:reply", (msg) => appendMessage("Atendente", msg));
+            socket.on("chat:reply", (msg) => => {
+    const nome = extrairNome(msg);
+    const mensagemSemNome = msg.replace(/\*(.*?)\*:\s*/, ""); // Remove o nome da mensagem
+    appendMessage(nome, mensagemSemNome);
+});
             socket.on("chat:image", (url) => appendImage(url));
             socket.on("chat:previousMessages", (messages) => {
                 messages.forEach((msg) => {
                     if (msg.type === "image") {
                         appendImage(msg.body);
                     } else {
-                        appendMessage(msg.fromMe ? "Atendente" : "Você", msg.body);
+                        if (msg.fromMe) {
+                const nome = extrairNome(msg.body);
+                const mensagemSemNome = msg.body.replace(/\*(.*?)\*:\s*/, "");
+                appendMessage(nome, mensagemSemNome);
+            } else {
+                appendMessage("Você", msg.body);
+            }
                     }
                 });
             });
