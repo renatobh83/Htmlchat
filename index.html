@@ -173,7 +173,7 @@
                         messages.reverse().forEach((msg) => {
                             const timestamp = msg.timestamp || Date.now();
                             if (msg.mediaType === "image") {
-                                const link = `${API_URL}/public/${msg.body}`
+                                const link = `${API_URL}/public/${msg.mediaUrl}`
                                 console.log(link)
                                 appendImage(link);
                             } else {
