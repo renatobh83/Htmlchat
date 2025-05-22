@@ -165,7 +165,7 @@
                         playSound();
                         notify("Nova mensagem", msg);
                     });
-                    socket.on("chat:image", (data) => appendImage(data.url, true));
+                    socket.on("chat:image", (data) => appendImage(data.url, null, true));
 
                     socket.on("chat:previousMessages", (messages) => {
                         if (offset === 0) chatMessages.innerHTML = ""; // Limpa na primeira carga
@@ -240,9 +240,10 @@
             `;
                     document.body.appendChild(formContainer);
                     chatMessages = document.getElementById("chat-messages"); // 👈 aqui está certo
-
+                    const chatInput = document.getElementById("chat-input");
 
                     // Eventos
+                    chatInput.addEventListener("paste", handlePaste);
                     document.getElementById("chat-send-btn").addEventListener("click", sendMessage);
                     document.getElementById("chat-input").addEventListener("keydown", (e) => {
                         if (e.key === "Enter" && e.target.value.trim()) {
@@ -250,7 +251,7 @@
                             sendMessage();
                         }
                     });
-                    document.getElementById("file-upload").addEventListener("change", uploadFile);
+                    document.getElementById("file-upload").addEventListener("change", handleFileInputChange);
                     document.getElementById("chat-close-btn").addEventListener("click", async () => {
                         if (confirm("Deseja encerrar o atendimento?")) {
                             socket.disconnect();
@@ -322,7 +323,12 @@
                     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                     return re.test(email);
                 }
-
+                function handleFileInputChange(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        uploadFile(file);
+                    }
+                }
                 function sendMessage() {
                     const input = document.getElementById("chat-input");
                     const msg = input.value.trim();
@@ -331,7 +337,22 @@
                     appendMessage("Você", msg, Date.now());
                     input.value = "";
                 }
+                function handlePaste(event) {
+                    const clipboardItems = event.clipboardData.items;
 
+                    for (let i = 0; i < clipboardItems.length; i++) {
+                        const item = clipboardItems[i];
+
+                        if (item.type.startsWith("image/")) {
+                            const file = item.getAsFile();
+                            if (file) {
+                                const urlImg = window.URL.createObjectURL(file);
+                                uploadFile(file)
+                                break;
+                            }
+                        }
+                    }
+                }
                 function appendMessage(sender, text, timestamp = Date.now()) {// const messages = document.getElementById("chat-messages");
                     const el = document.createElement("div");
                     const isClient = sender === "Você";
@@ -369,8 +390,7 @@
                     chatMessages.appendChild(el);
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                 }
-                async function uploadFile(e) {
-                    const file = e.target.files[0];
+                async function uploadFile(file) {
                     if (!file) return;
 
                     const formData = new FormData();
