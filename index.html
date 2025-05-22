@@ -172,7 +172,7 @@
                         playSound();
                         notify("Nova mensagem", msg);
                     });
-                    socket.on("chat:image", (url) => appendImage(url));
+                      socket.on("chat:image", (link) => appendImage(link.url));
 
                     socket.on("chat:previousMessages", (messages) => {
                         if (offset === 0) chatMessages.innerHTML = ""; // Limpa na primeira carga
