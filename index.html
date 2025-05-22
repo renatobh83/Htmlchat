@@ -130,7 +130,7 @@
                     if (msg.type === "image") {
                         appendImage(msg.body);
                     } else {
-                        appendMessage(msg.fromMe ? "Você" : "Atendente", msg.body);
+                        appendMessage(msg.fromMe ? "Atendente" : "Você", msg.body);
                     }
                 });
             });
