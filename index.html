@@ -12,70 +12,70 @@
     <p>TESTE CHAT CLIENT</p>
     <!-- <script src="https://app4.pluslive.online/api/chat-widget.js"></script> -->
     <script>
-(function () {
-    if (window.__chatWidgetLoaded) return; // evita duplicação
-    window.__chatWidgetLoaded = true;
+        (function () {
+            if (window.__chatWidgetLoaded) return; // evita duplicação
+            window.__chatWidgetLoaded = true;
 
-    const loadScript = (src, callback) => {
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = callback;
-        document.head.appendChild(script);
-    };
+            const loadScript = (src, callback) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = callback;
+                document.head.appendChild(script);
+            };
 
-    loadScript("https://cdn.socket.io/4.7.2/socket.io.min.js", () => {
-        const API_URL = "https://app4.pluslive.online";
-        let socket;
-        let chatVisible = false;
-        let chatToken = localStorage.getItem("chat_token");
-        let formContainer = null;
+            loadScript("https://cdn.socket.io/4.7.2/socket.io.min.js", () => {
+                const API_URL = "https://app4.pluslive.online";
+                let socket;
+                let chatVisible = false;
+                let chatToken = localStorage.getItem("chat_token");
+                let formContainer = null;
 
-        const chatButton = document.createElement("div");
-        chatButton.innerText = "💬";
-        Object.assign(chatButton.style, {
-            position: "fixed",
-            bottom: "20px",
-            right: "20px",
-            background: "#007bff",
-            color: "#fff",
-            borderRadius: "50%",
-            width: "60px",
-            height: "60px",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            fontSize: "28px",
-            cursor: "pointer",
-            zIndex: 9999,
-        });
-        document.body.appendChild(chatButton);
+                const chatButton = document.createElement("div");
+                chatButton.innerText = "💬";
+                Object.assign(chatButton.style, {
+                    position: "fixed",
+                    bottom: "20px",
+                    right: "20px",
+                    background: "#007bff",
+                    color: "#fff",
+                    borderRadius: "50%",
+                    width: "60px",
+                    height: "60px",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    fontSize: "28px",
+                    cursor: "pointer",
+                    zIndex: 9999,
+                });
+                document.body.appendChild(chatButton);
 
-        chatButton.addEventListener("click", () => {
-            chatVisible = !chatVisible;
-            if (chatVisible) {
-                if (!formContainer) {
-                    showPreForm();
-                } else {
-                    formContainer.style.display = "block";
+                chatButton.addEventListener("click", () => {
+                    chatVisible = !chatVisible;
+                    if (chatVisible) {
+                        if (!formContainer) {
+                            showPreForm();
+                        } else {
+                            formContainer.style.display = "block";
+                        }
+                    } else {
+                        if (formContainer) formContainer.style.display = "none";
+                    }
+                });
+
+                if (chatToken) {
+                    chatVisible = true;
+                    connectSocket();
                 }
-            } else {
-                if (formContainer) formContainer.style.display = "none";
-            }
-        });
+                function extrairNome(mensagem) {
+                    const regex = /\*(.*?)\*/;
+                    const match = mensagem.match(regex);
+                    return match ? match[1] : "Atendente";
+                }
 
-        if (chatToken) {
-            chatVisible = true;
-            connectSocket();
-        }
-        function extrairNome(mensagem) {
-    const regex = /\*(.*?)\*/;
-    const match = mensagem.match(regex);
-    return match ? match[1] : "Atendente";
-}
-
-        function showPreForm() {
-            formContainer = document.createElement("div");
-            formContainer.innerHTML = `
+                function showPreForm() {
+                    formContainer = document.createElement("div");
+                    formContainer.innerHTML = `
                 <div style="position: fixed; bottom: 90px; right: 20px; background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); width: 320px; font-family: sans-serif; z-index: 9992;">
                     <h3 style="margin-top: 0; font-size: 1.2rem; color: #333;">Iniciar Atendimento</h3>
                     <label style="display: block; margin-bottom: 8px; color: #555;">Nome</label>
@@ -87,83 +87,83 @@
                     <button id="chat-start-btn" style="width: 100%; padding: 12px; background: #007bff; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;">Iniciar Chat</button>
                 </div>
             `;
-            document.body.appendChild(formContainer);
+                    document.body.appendChild(formContainer);
 
-            document.getElementById("chat-start-btn").addEventListener("click", async () => {
-                const name = document.getElementById("chat-name").value;
-                const email = document.getElementById("chat-email").value;
-                const identifier = document.getElementById("chat-cnpj").value;
+                    document.getElementById("chat-start-btn").addEventListener("click", async () => {
+                        const name = document.getElementById("chat-name").value;
+                        const email = document.getElementById("chat-email").value;
+                        const identifier = document.getElementById("chat-cnpj").value;
 
-                if (!name || !email || !identifier) return alert("Preencha todos os campos.");
+                        if (!name || !email || !identifier) return alert("Preencha todos os campos.");
 
-                try {
-                    const res = await fetch(`${API_URL}/api/chatClient/token`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name, email, identifier })
+                        try {
+                            const res = await fetch(`${API_URL}/api/chatClient/token`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ name, email, identifier })
+                            });
+                            const { token, error } = await res.json();
+
+                            if (error) return alert(error);
+                            chatToken = token;
+                            localStorage.setItem("chat_token", token);
+                            formContainer.remove();
+                            connectSocket();
+                        } catch (err) {
+                            console.error("Erro ao gerar token", err);
+                            alert("Não foi possível iniciar o chat.");
+                        }
                     });
-                    const { token, error } = await res.json();
-
-                    if (error) return alert(error);
-                    chatToken = token;
-                    localStorage.setItem("chat_token", token);
-                    formContainer.remove();
-                    connectSocket();
-                } catch (err) {
-                    console.error("Erro ao gerar token", err);
-                    alert("Não foi possível iniciar o chat.");
                 }
-            });
-        }
 
-        function connectSocket() {
-            if (formContainer) formContainer.remove();
-            socket = io(API_URL, {
-                auth: { token: chatToken },
-                transports: ["websocket"]
-            });
+                function connectSocket() {
+                    if (formContainer) formContainer.remove();
+                    socket = io(API_URL, {
+                        auth: { token: chatToken },
+                        transports: ["websocket"]
+                    });
 
-            socket.on("connect", () => {
-                console.log("Conectado ao socket");
-                openChatUI();
-            });
+                    socket.on("connect", () => {
+                        console.log("Conectado ao socket");
+                        openChatUI();
+                    });
 
-            socket.on("chat:reply", (msg) => {
-    const nome = extrairNome(msg);
-    const mensagemSemNome = msg.replace(/\*(.*?)\*:\s*/, ""); // Remove o nome da mensagem
-    appendMessage(nome, mensagemSemNome);
-});
-            socket.on("chat:image", (url) => appendImage(url));
-            socket.on("chat:previousMessages", (messages) => {
-                const loadingEl = document.getElementById("chat-loading");
-    if (loadingEl) loadingEl.remove();
-                messages.forEach((msg) => {
-                    if (msg.type === "image") {
-                        appendImage(msg.body);
-                    } else {
-                        if (msg.fromMe) {
-                const nome = extrairNome(msg.body);
-                const mensagemSemNome = msg.body.replace(/\*(.*?)\*:\s*/, "");
-                appendMessage(nome, mensagemSemNome);
-            } else {
-                appendMessage("Você", msg.body);
-            }
-                    }
-                });
-            });
+                    socket.on("chat:reply", (msg) => {
+                        const nome = extrairNome(msg);
+                        const mensagemSemNome = msg.replace(/\*(.*?)\*:\s*/, ""); // Remove o nome da mensagem
+                        appendMessage(nome, mensagemSemNome);
+                    });
+                    socket.on("chat:image", (url) => appendImage(url));
+                    socket.on("chat:previousMessages", (messages) => {
+                        const loadingEl = document.getElementById("chat-loading");
+                        if (loadingEl) loadingEl.remove();
+                        messages.forEach((msg) => {
+                            if (msg.type === "image") {
+                                appendImage(msg.body);
+                            } else {
+                                if (msg.fromMe) {
+                                    const nome = extrairNome(msg.body);
+                                    const mensagemSemNome = msg.body.replace(/\*(.*?)\*:\s*/, "");
+                                    appendMessage(nome, mensagemSemNome);
+                                } else {
+                                    appendMessage("Você", msg.body);
+                                }
+                            }
+                        });
+                    });
 
-            socket.on("connect_error", (err) => {
-                console.error("Erro de conexão:", err.message);
-                if (err.message.includes("Token inválido")) {
-                    localStorage.removeItem("chat_token");
-                    alert("Sessão expirada. Recarregue e inicie novamente.");
+                    socket.on("connect_error", (err) => {
+                        console.error("Erro de conexão:", err.message);
+                        if (err.message.includes("Token inválido")) {
+                            localStorage.removeItem("chat_token");
+                            alert("Sessão expirada. Recarregue e inicie novamente.");
+                        }
+                    });
                 }
-            });
-        }
 
-        function openChatUI() {
-            formContainer = document.createElement("div");
-            formContainer.innerHTML = `
+                function openChatUI() {
+                    formContainer = document.createElement("div");
+                    formContainer.innerHTML = `
                 <style>
                     .chat-message { display: flex; margin-bottom: 8px; max-width: 80%; }
                     .chat-client { justify-content: flex-end; margin-left: auto; text-align: right; }
@@ -185,75 +185,75 @@
                     </div>
                 </div>
             `;
-            document.body.appendChild(formContainer);
+                    document.body.appendChild(formContainer);
 
-            document.getElementById("chat-send-btn").addEventListener("click", function (e) {
-                e.preventDefault();
-                const input = document.getElementById("chat-input");
-                const msg = input.value.trim();
-                if (!msg) return;
-                socket.emit("chat:message", msg);
-                appendMessage("Você", msg);
-                input.value = "";
-            });
-
-            const fileInput = document.getElementById("file-upload");
-            fileInput.addEventListener("change", async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                const formData = new FormData();
-                formData.append("file", file);
-
-                try {
-                    const res = await fetch(`${API_URL}/api/chatClient/upload`, {
-                        method: "POST",
-                        headers: {
-                            Authorization: `Bearer ${chatToken}`,
-                        },
-                        body: formData
+                    document.getElementById("chat-send-btn").addEventListener("click", function (e) {
+                        e.preventDefault();
+                        const input = document.getElementById("chat-input");
+                        const msg = input.value.trim();
+                        if (!msg) return;
+                        socket.emit("chat:message", msg);
+                        appendMessage("Você", msg);
+                        input.value = "";
                     });
-                    const data = await res.json();
-                    if (data.url) {
-                        socket.emit("chat:image", data.url);
-                        appendImage(data.url);
-                    } else {
-                        alert("Erro ao enviar imagem");
-                    }
-                } catch (err) {
-                    console.error(err);
-                    alert("Erro ao enviar imagem");
-                } finally {
-                    // Reset input para permitir selecionar o mesmo arquivo novamente
-                    fileInput.value = "";
+
+                    const fileInput = document.getElementById("file-upload");
+                    fileInput.addEventListener("change", async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+
+                        const formData = new FormData();
+                        formData.append("file", file);
+
+                        try {
+                            const res = await fetch(`${API_URL}/api/chatClient/upload`, {
+                                method: "POST",
+                                headers: {
+                                    Authorization: `Bearer ${chatToken}`,
+                                },
+                                body: formData
+                            });
+                            const data = await res.json();
+                            if (data.url) {
+                                socket.emit("chat:image", data.url);
+                                appendImage(data.url);
+                            } else {
+                                alert("Erro ao enviar imagem");
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            alert("Erro ao enviar imagem");
+                        } finally {
+                            // Reset input para permitir selecionar o mesmo arquivo novamente
+                            fileInput.value = "";
+                        }
+                    });
                 }
-            });
-        }
 
-        function appendMessage(sender, text) {
-            const messages = document.getElementById("chat-messages");
-            const el = document.createElement("div");
-            const isClient = sender === "Você";
-            el.className = isClient ? "chat-message chat-client" : "chat-message chat-agent";
-            el.innerHTML = `<div class="message-content"><strong>${sender}:</strong> ${text}</div>`;
-            messages.appendChild(el);
-            messages.scrollTop = messages.scrollHeight;
-        }
+                function appendMessage(sender, text) {
+                    const messages = document.getElementById("chat-messages");
+                    const el = document.createElement("div");
+                    const isClient = sender === "Você";
+                    el.className = isClient ? "chat-message chat-client" : "chat-message chat-agent";
+                    el.innerHTML = `<div class="message-content"><strong>${sender}:</strong> ${text}</div>`;
+                    messages.appendChild(el);
+                    messages.scrollTop = messages.scrollHeight;
+                }
 
-        function appendImage(url) {
-            const messages = document.getElementById("chat-messages");
-            const el = document.createElement("div");
-            el.className = "chat-message chat-client";
-            el.innerHTML = `
+                function appendImage(url) {
+                    const messages = document.getElementById("chat-messages");
+                    const el = document.createElement("div");
+                    el.className = "chat-message chat-client";
+                    el.innerHTML = `
                 <div class="message-content">
-                    <img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" />
+                    <img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" crossorigin="anonymous" />
                 </div>
             `;
-            messages.appendChild(el);
-            messages.scrollTop = messages.scrollHeight;
-        }
-    });
-})();
+                    messages.appendChild(el);
+                    messages.scrollTop = messages.scrollHeight;
+                }
+            });
+        })();
 
     </script>
 </body>
