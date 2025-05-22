@@ -147,12 +147,6 @@
                     });
                 }
 
-
-
-
-
-
-
                 function connectSocket() {
                     if (formContainer) formContainer.remove();
                     socket = io(API_URL, {
@@ -164,7 +158,6 @@
                         console.log("Conectado ao socket");
                         openChatUI();
                     });
-
                     socket.on("chat:reply", (msg) => {
                         const nome = extrairNome(msg);
                         const mensagemSemNome = msg.replace(/\*(.*?)\*:\s*/, ""); // Remove o nome da mensagem
@@ -172,15 +165,17 @@
                         playSound();
                         notify("Nova mensagem", msg);
                     });
-                      socket.on("chat:image", (link) => appendImage(link.url));
+                    socket.on("chat:image", (data) => appendImage(data.url));
 
                     socket.on("chat:previousMessages", (messages) => {
                         if (offset === 0) chatMessages.innerHTML = ""; // Limpa na primeira carga
                         hideLoading();
                         messages.reverse().forEach((msg) => {
                             const timestamp = msg.timestamp || Date.now();
-                            if (msg.type === "image") {
-                                appendImage(msg.body);
+                            if (msg.mediaType === "image") {
+                                const link = `${API_URL}/public/${msg.body}`
+                                console.log(link)
+                                appendImage(link);
                             } else {
                                 if (msg.fromMe) {
                                     const nome = extrairNome(msg.body);
@@ -363,16 +358,16 @@
                     return match ? match[1] : "Atendente";
                 }
 
-                function appendImage(url, timestamp = Date.now()) {
-                    console.log(url)
+                function appendImage(url, timestamp = Date.now(), sender = false) {
                     // const messages = document.getElementById("chat-messages");
                     const el = document.createElement("div");
-                    el.className = "chat-message chat-client";
+                    const isClient = sender;
+                    el.className = isClient ? "chat-message chat-client" : "chat-message chat-agent";
                     el.innerHTML = `
-                <div class="message-content">
-                    <img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" crossorigin="anonymous" />
-                      <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div>
-                </div>
+                    <div class="message-content">
+                        <img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" crossorigin="anonymous" />
+                        <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div>
+                    </div>
             `;
                     chatMessages.appendChild(el);
                     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -395,7 +390,7 @@
                         const data = await res.json();
                         if (data.url) {
                             socket.emit("chat:image", data.url);
-                            appendImage(data.url);
+                            appendImage(data.url, true);
                         } else {
                             showToast("Erro ao enviar imagem", "error");
 
