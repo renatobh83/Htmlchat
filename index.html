@@ -165,7 +165,7 @@
                         playSound();
                         notify("Nova mensagem", msg);
                     });
-                    socket.on("chat:image", (data) => appendImage(data.url));
+                    socket.on("chat:image", (data) => appendImage(data.url, true));
 
                     socket.on("chat:previousMessages", (messages) => {
                         if (offset === 0) chatMessages.innerHTML = ""; // Limpa na primeira carga
@@ -174,8 +174,8 @@
                             const timestamp = msg.timestamp || Date.now();
                             if (msg.mediaType === "image") {
                                 const link = `${API_URL}/public/${msg.mediaUrl}`
-                                console.log(link)
-                                appendImage(link);
+
+                                appendImage(link, null, msg.fromMe);
                             } else {
                                 if (msg.fromMe) {
                                     const nome = extrairNome(msg.body);
@@ -332,8 +332,7 @@
                     input.value = "";
                 }
 
-                function appendMessage(sender, text, timestamp = Date.now()) {
-                    // const messages = document.getElementById("chat-messages");
+                function appendMessage(sender, text, timestamp = Date.now()) {// const messages = document.getElementById("chat-messages");
                     const el = document.createElement("div");
                     const isClient = sender === "Você";
                     el.className = isClient ? "chat-message chat-client" : "chat-message chat-agent";
@@ -358,13 +357,11 @@
                     return match ? match[1] : "Atendente";
                 }
 
-                function appendImage(url, timestamp = Date.now(), sender = false) {
-                    // const messages = document.getElementById("chat-messages");
+                function appendImage(url, timestamp = Date.now(), sender) {
                     const el = document.createElement("div");
-                    const isClient = sender;
-                    el.className = isClient ? "chat-message chat-client" : "chat-message chat-agent";
+                    el.className = !sender ? "chat-message chat-client" : "chat-message chat-agent";
                     el.innerHTML = `
-                    <div class="message-content">
+                    <div class="message-content" id=${url}>
                         <img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" crossorigin="anonymous" />
                         <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div>
                     </div>
@@ -390,7 +387,7 @@
                         const data = await res.json();
                         if (data.url) {
                             socket.emit("chat:image", data.url);
-                            appendImage(data.url, true);
+                            appendImage(data.url, null, false);
                         } else {
                             showToast("Erro ao enviar imagem", "error");
 
