@@ -128,13 +128,15 @@
                 openChatUI();
             });
 
-            socket.on("chat:reply", (msg) => => {
+            socket.on("chat:reply", (msg) => {
     const nome = extrairNome(msg);
     const mensagemSemNome = msg.replace(/\*(.*?)\*:\s*/, ""); // Remove o nome da mensagem
     appendMessage(nome, mensagemSemNome);
 });
             socket.on("chat:image", (url) => appendImage(url));
             socket.on("chat:previousMessages", (messages) => {
+                const loadingEl = document.getElementById("chat-loading");
+    if (loadingEl) loadingEl.remove();
                 messages.forEach((msg) => {
                     if (msg.type === "image") {
                         appendImage(msg.body);
@@ -171,7 +173,10 @@
                 </style>
                 <div style="position: fixed; bottom: 80px; right: 20px; background: white; border: 1px solid #ccc; border-radius: 12px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); width: 320px; padding: 12px; height: 400px; display: flex; flex-direction: column; z-index: 9999;">
                     <small style="color: #999;">Conectado ao atendimento</small>
-                    <div id="chat-messages" style="flex: 1; padding: 10px; overflow-y: auto;"></div>
+                    <div id="chat-messages" style="flex: 1; padding: 10px; overflow-y: auto;">
+    <div id="chat-loading" style="text-align: center; color: #777;">Carregando mensagens...</div>
+</div>
+
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <label for="file-upload" style="cursor: pointer;">📎</label>
                         <input type="file" id="file-upload" accept="image/*" style="display:none" />
