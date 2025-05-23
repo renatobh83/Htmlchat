@@ -10,8 +10,8 @@
 
 <body>
     <p>TESTE CHAT CLIENT</p>
-    <script src="http://localhost:3100/api/chat-widget.js"></script>
-<!--     <script src="https://app4.pluslive.online/api/chat-widget.js"></script> -->
+<!--     <script src="http://localhost:3100/api/chat-widget.js"></script> -->
+    <script src="https://app4.pluslive.online/api/chat-widget.js"></script>
     <script>
         (function () {
             if (window.__chatWidgetLoaded) return; // evita duplicação
@@ -26,8 +26,8 @@
             };
 
             loadScript("https://cdn.socket.io/4.7.2/socket.io.min.js", () => {
-                // const API_URL = "https://app4.pluslive.online";
-                const API_URL = "http://localhost:3100";
+                const API_URL = "https://app4.pluslive.online";
+                // const API_URL = "http://localhost:3100";
                 let socket;
                 let chatVisible = false;
                 let chatToken = localStorage.getItem("chat_token");
