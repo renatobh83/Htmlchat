@@ -25,8 +25,8 @@
             };
 
             loadScript("https://cdn.socket.io/4.7.2/socket.io.min.js", () => {
-                const API_URL = "https://app4.pluslive.online";
-                // const API_URL = "http://localhost:3100";
+                // const API_URL = "https://app4.pluslive.online";
+                const API_URL = "http://localhost:3100";
                 let socket;
                 let chatVisible = false;
                 let chatToken = localStorage.getItem("chat_token");
@@ -34,7 +34,7 @@
                 let chatMessages = null;
                 let loadingOlder = false;
                 let offset = 0;
-
+                let sendCooldown = false;
                 const chatButton = document.createElement("div");
                 chatButton.innerText = "💬";
                 Object.assign(chatButton.style, {
@@ -156,10 +156,12 @@
 
                     socket.on("connect", () => {
                         console.log("Conectado ao socket");
+
                         openChatUI();
                     });
                     socket.on("chat:reply", (msg) => {
                         const nome = extrairNome(msg);
+
                         const mensagemSemNome = msg.replace(/\*(.*?)\*:\s*/, ""); // Remove o nome da mensagem
                         appendMessage(nome, mensagemSemNome);
                         playSound();
@@ -168,25 +170,31 @@
                     socket.on("chat:image", (data) => appendImage(data.url, null, true));
 
                     socket.on("chat:previousMessages", (messages) => {
-                        if (offset === 0) chatMessages.innerHTML = ""; // Limpa na primeira carga
+
+                        if (offset === 0) chatMessages.innerHTML = ""
                         hideLoading();
-                        messages.reverse().forEach((msg) => {
+                        const scrollBefore = chatMessages.scrollHeight;
+
+                        messages.forEach((msg) => {
                             const timestamp = msg.timestamp || Date.now();
+                            let el;
                             if (msg.mediaType === "image") {
                                 const link = `${API_URL}/public/${msg.mediaUrl}`
-
-                                appendImage(link, null, msg.fromMe);
+                                el = createImageElement(link, timestamp, msg.fromMe);
                             } else {
                                 if (msg.fromMe) {
                                     const nome = extrairNome(msg.body);
                                     const mensagemSemNome = msg.body.replace(/\*(.*?)\*:\s*/, "");
-                                    appendMessage(nome, mensagemSemNome, timestamp);
+                                    el = createMessageElement(nome, mensagemSemNome, timestamp);
                                 } else {
-                                    appendMessage("Você", msg.body, timestamp);
+                                    el = createMessageElement("Você", msg.body, timestamp);
                                 }
                             }
+                            chatMessages.insertBefore(el, chatMessages.firstChild);
                         });
-                        if (offset === 0) chatMessages.scrollTop = chatMessages.scrollHeight;
+                        // if (offset === 0)
+                        // chatMessages.scrollTop = chatMessages.scrollHeight;
+                        chatMessages.scrollTop = chatMessages.scrollHeight - scrollBefore;
                         loadingOlder = false;
                     });
 
@@ -227,7 +235,7 @@
                         <button id="chat-close-btn" style="background: transparent; border: none; font-size: 16px; cursor: pointer;">✖</button>
                     </div>
                     <div id="chat-messages" style="flex: 1; padding: 10px; overflow-y: auto;">
-                        <div id="chat-loading" style="text-align: center; color: #777;">Carregando mensagens...</div>
+                        <div id="chat-loading" style="text-align: center; color: #777;    ">Carregando mensagens...</div>
                     </div>
 
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -258,7 +266,7 @@
                             localStorage.removeItem("chat_token");
                             formContainer.remove();
                             formContainer = null;
-                            offset = 0;
+                            offset = 50;
                             chatToken = null;
                             chatVisible = false
                         }
@@ -266,12 +274,10 @@
 
                     chatMessages.addEventListener("scroll", () => {
                         if (chatMessages.scrollTop === 0) {
-
                             loadMessages();
                         }
                     });
-
-                    loadMessages();
+                    loadMessages()
                 }
                 // Toast artesanal
                 function createToastContainer() {
@@ -332,7 +338,9 @@
                 function sendMessage() {
                     const input = document.getElementById("chat-input");
                     const msg = input.value.trim();
-                    if (!msg) return;
+                    if (sendCooldown || !msg.trim()) return;
+                    sendCooldown = true;
+                    setTimeout(() => sendCooldown = false, 300);
                     socket.emit("chat:message", msg);
                     appendMessage("Você", msg, Date.now());
                     input.value = "";
@@ -359,12 +367,21 @@
                     el.className = isClient ? "chat-message chat-client" : "chat-message chat-agent";
                     el.innerHTML = `<div class="message-content"><strong>${sender}:</strong> ${text}
                           <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div></div>`;
+
                     chatMessages.appendChild(el);
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                 }
+                function createMessageElement(sender, text, timestamp = Date.now()) {// const messages = document.getElementById("chat-messages");
+                    const el = document.createElement("div");
+                    const isClient = sender === "Você";
+                    el.className = isClient ? "chat-message chat-client" : "chat-message chat-agent";
+                    el.innerHTML = `<div class="message-content"><strong>${sender}:</strong> ${text}
+                          <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div></div>`;
+                    return el
+
+                }
                 function formatTime(timestamp) {
                     const date = new Date(Number(timestamp));
-
                     return date.toLocaleTimeString("pt-BR", {
                         day: "2-digit",
                         month: "2-digit",
@@ -387,8 +404,20 @@
                         <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div>
                     </div>
             `;
+
                     chatMessages.appendChild(el);
                     chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+                function createImageElement(url, timestamp = Date.now(), sender) {
+                    const el = document.createElement("div");
+                    el.className = !sender ? "chat-message chat-client" : "chat-message chat-agent";
+                    el.innerHTML = `
+                    <div class="message-content" id=${url}>
+                        <img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" crossorigin="anonymous" />
+                        <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div>
+                    </div>
+            `;
+                    return el;
                 }
                 async function uploadFile(file) {
                     if (!file) return;
