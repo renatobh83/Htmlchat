@@ -192,12 +192,12 @@
                             chatMessages.insertBefore(el, chatMessages.firstChild);
                         });
 
-                        setTimeout(() => {
+                        
                             chatMessages.scrollTo({
                                 top: chatMessages.scrollHeight - scrollBefore,
                                 behavior: "smooth"
                             });
-                        }, 50);
+                        
                         loadingOlder = false;
                     });
 
