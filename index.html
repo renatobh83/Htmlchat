@@ -164,7 +164,12 @@
                         const mensagemSemNome = msg.replace(/\*(.*?)\*:\s*/, ""); // Remove o nome da mensagem
                         appendMessage(nome, mensagemSemNome, Date.now());
                         playSound();
-                        notify("Nova mensagem", msg);
+                        try {
+        notify("Nova mensagem", msg);
+    } catch (e) {
+        console.error("Erro ao exibir notificação:", e);
+                        }
+                      //  notify("Nova mensagem", msg);
                         
                         console.log(loadingOlder)
                     });
