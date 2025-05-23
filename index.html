@@ -165,6 +165,7 @@
                         playSound();
                         notify("Nova mensagem", msg);
                         if (loadingOlder) hideLoading();
+                        console.log(loadingOlder)
                     });
                     socket.on("chat:image", (data) => appendImage(data.url, Date.now(), true));
 
