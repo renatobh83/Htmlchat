@@ -159,12 +159,13 @@
                         openChatUI();
                     });
                     socket.on("chat:reply", (msg) => {
+                        if (loadingOlder) hideLoading();
                         const nome = extrairNome(msg);
                         const mensagemSemNome = msg.replace(/\*(.*?)\*:\s*/, ""); // Remove o nome da mensagem
                         appendMessage(nome, mensagemSemNome, Date.now());
                         playSound();
                         notify("Nova mensagem", msg);
-                        if (loadingOlder) hideLoading();
+                        
                         console.log(loadingOlder)
                     });
                     socket.on("chat:image", (data) => appendImage(data.url, Date.now(), true));
