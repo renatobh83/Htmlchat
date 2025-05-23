@@ -10,8 +10,9 @@
 
 <body>
     <p>TESTE CHAT CLIENT</p>
-<script>
-       (function () {
+    <script src="https://app4.pluslive.online/api/chat-widget.js?client=11"></script>
+    <script>
+        (function () {
             if (window.__chatWidgetLoaded) return; // evita duplicação
             window.__chatWidgetLoaded = true;
 
@@ -161,12 +162,12 @@
                     socket.on("chat:reply", (msg) => {
                         const nome = extrairNome(msg);
                         const mensagemSemNome = msg.replace(/\*(.*?)\*:\s*/, ""); // Remove o nome da mensagem
-                        appendMessage(nome, mensagemSemNome);
+                        appendMessage(nome, mensagemSemNome, Date.now());
                         playSound();
                         notify("Nova mensagem", msg);
                         if (loadingOlder) hideLoading();
                     });
-                    socket.on("chat:image", (data) => appendImage(data.url, null, true));
+                    socket.on("chat:image", (data) => appendImage(data.url, Date.now(), true));
 
                     socket.on("chat:previousMessages", (messages) => {
 
@@ -439,7 +440,7 @@
                         const data = await res.json();
                         if (data.url) {
                             socket.emit("chat:image", data.url);
-                            appendImage(data.url, null, false);
+                            appendImage(data.url, Date.now(), false);
                         } else {
                             showToast("Erro ao enviar imagem", "error");
 
@@ -482,7 +483,7 @@
             });
         })();
 
-</script>
+    </script>
 </body>
 
 </html>
