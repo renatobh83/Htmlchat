@@ -32,7 +32,7 @@
                 let chatToken = localStorage.getItem("chat_token");
                 let formContainer = null;
                 let chatMessages = null;
-                let loadingOlder = false;
+                let loadingOlder = true;
                 let offset = 0;
                 let sendCooldown = false;
                 const chatButton = document.createElement("div");
@@ -277,7 +277,7 @@
 
                     chatMessages.addEventListener("scroll", () => {
                         if (chatMessages.scrollTop === 0) {
-                           // loadMessages();
+                            loadMessages();
                             console.log("ontop")
                         }
                     });
