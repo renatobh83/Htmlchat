@@ -436,7 +436,7 @@
                         const data = await res.json();
                         if (data.url) {
                             socket.emit("chat:image", data.url);
-                            appendImage(data.url, null, false);
+                            appendImage(data.url, new Date(), false);
                         } else {
                             showToast("Erro ao enviar imagem", "error");
 
