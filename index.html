@@ -10,6 +10,7 @@
 
 <body>
     <p>TESTE CHAT CLIENT</p>
+
     <script>
         (function () {
             if (window.__chatWidgetLoaded) return; // evita duplicação
@@ -154,8 +155,7 @@
                     });
 
                     socket.on("connect", () => {
-                        console.log("Conectado ao socket");
-
+                        console.log("Conectado ao socket", socket.id);
                         openChatUI();
                     });
                     socket.on("chat:reply", (msg) => {
@@ -169,24 +169,24 @@
                     socket.on("chat:image", (data) => appendImage(data.url, Date.now(), true));
 
                     socket.on("chat:previousMessages", (messages) => {
-
                         if (offset === 0) chatMessages.innerHTML = ""
                         hideLoading();
                         const scrollBefore = chatMessages.scrollHeight;
 
                         messages.forEach((msg) => {
+
                             const timestamp = msg.timestamp || Date.now();
                             let el;
                             if (msg.mediaType === "image") {
                                 const link = `${API_URL}/public/${msg.mediaUrl}`
-                                el = createImageElement(link, timestamp, msg.fromMe);
+                                el = createImageElement(link, timestamp, msg.fromMe, msg.id);
                             } else {
                                 if (msg.fromMe) {
                                     const nome = extrairNome(msg.body);
                                     const mensagemSemNome = msg.body.replace(/\*(.*?)\*:\s*/, "");
-                                    el = createMessageElement(nome, mensagemSemNome, timestamp);
+                                    el = createMessageElement(nome, mensagemSemNome, timestamp, msg.id);
                                 } else {
-                                    el = createMessageElement("Você", msg.body, timestamp);
+                                    el = createMessageElement("Você", msg.body, timestamp, msg.id);
                                 }
                             }
                             chatMessages.insertBefore(el, chatMessages.firstChild);
@@ -364,21 +364,22 @@
                         }
                     }
                 }
-                function appendMessage(sender, text, timestamp = Date.now()) {// const messages = document.getElementById("chat-messages");
+
+                function appendMessage(sender, text, timestamp = Date.now(), id = Date.now()) {// const messages = document.getElementById("chat-messages");
                     const el = document.createElement("div");
                     const isClient = sender === "Você";
                     el.className = isClient ? "chat-message chat-client" : "chat-message chat-agent";
-                    el.innerHTML = `<div class="message-content"><strong>${sender}:</strong> ${text}
+                    el.innerHTML = `<div id=${id} class="message-content"><strong>${sender}:</strong> ${text}
                           <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div></div>`;
 
                     chatMessages.appendChild(el);
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                 }
-                function createMessageElement(sender, text, timestamp = Date.now()) {// const messages = document.getElementById("chat-messages");
+                function createMessageElement(sender, text, timestamp = Date.now(), id = Date.now()) {// const messages = document.getElementById("chat-messages");
                     const el = document.createElement("div");
                     const isClient = sender === "Você";
                     el.className = isClient ? "chat-message chat-client" : "chat-message chat-agent";
-                    el.innerHTML = `<div class="message-content"><strong>${sender}:</strong> ${text}
+                    el.innerHTML = `<div id=${id} class="message-content"><strong>${sender}:</strong> ${text}
                           <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div></div>`;
                     return el
 
@@ -398,12 +399,14 @@
                     return match ? match[1] : "Atendente";
                 }
 
-                function appendImage(url, timestamp = Date.now(), sender) {
+                function appendImage(url, timestamp = Date.now(), sender, id = Date.now()) {
                     const el = document.createElement("div");
                     el.className = !sender ? "chat-message chat-client" : "chat-message chat-agent";
                     el.innerHTML = `
-                    <div class="message-content" id=${url}>
-                        <img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" crossorigin="anonymous" />
+                    <div class="message-content" id=${id}>
+                          <a href="${url}" target="_blank" rel="noopener noreferrer">
+                            <img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" crossorigin="anonymous" />
+                          </a>
                         <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div>
                     </div>
             `;
@@ -411,12 +414,14 @@
                     chatMessages.appendChild(el);
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                 }
-                function createImageElement(url, timestamp = Date.now(), sender) {
+                function createImageElement(url, timestamp = Date.now(), sender, id = Date.now()) {
                     const el = document.createElement("div");
                     el.className = !sender ? "chat-message chat-client" : "chat-message chat-agent";
                     el.innerHTML = `
-                    <div class="message-content" id=${url}>
-                        <img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" crossorigin="anonymous" />
+                    <div class="message-content" id=${id}>
+                        <a href="${url}" target="_blank" rel="noopener noreferrer">
+                            <img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" crossorigin="anonymous" />
+                         </a>
                         <div style="font-size: 11px; color: #777; margin-top: 4px;">${formatTime(timestamp)}</div>
                     </div>
             `;
