@@ -10,7 +10,8 @@
 
 <body>
     <p>TESTE CHAT CLIENT</p>
-    <!-- <script src="https://app4.pluslive.online/api/chat-widget.js"></script> -->
+    <script src="http://localhost:3100/api/chat-widget.js"></script>
+<!--     <script src="https://app4.pluslive.online/api/chat-widget.js"></script> -->
     <script>
         (function () {
             if (window.__chatWidgetLoaded) return; // evita duplicação
@@ -161,11 +162,11 @@
                     });
                     socket.on("chat:reply", (msg) => {
                         const nome = extrairNome(msg);
-
                         const mensagemSemNome = msg.replace(/\*(.*?)\*:\s*/, ""); // Remove o nome da mensagem
                         appendMessage(nome, mensagemSemNome);
                         playSound();
                         notify("Nova mensagem", msg);
+                        if (loadingOlder) hideLoading();
                     });
                     socket.on("chat:image", (data) => appendImage(data.url, null, true));
 
@@ -192,9 +193,13 @@
                             }
                             chatMessages.insertBefore(el, chatMessages.firstChild);
                         });
-                        // if (offset === 0)
-                        // chatMessages.scrollTop = chatMessages.scrollHeight;
-                        chatMessages.scrollTop = chatMessages.scrollHeight - scrollBefore;
+
+                        setTimeout(() => {
+                            chatMessages.scrollTo({
+                                top: chatMessages.scrollHeight - scrollBefore,
+                                behavior: "smooth"
+                            });
+                        }, 50);
                         loadingOlder = false;
                     });
 
@@ -436,7 +441,7 @@
                         const data = await res.json();
                         if (data.url) {
                             socket.emit("chat:image", data.url);
-                            appendImage(data.url,Date.now(), false);
+                            appendImage(data.url, null, false);
                         } else {
                             showToast("Erro ao enviar imagem", "error");
 
